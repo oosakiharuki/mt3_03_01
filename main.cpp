@@ -6,6 +6,11 @@ const char kWindowTitle[] = "LE2C_07_オオサキ_ハルキ_タイトル";
 
 MyMath* myMath_ = new MyMath();
 
+
+Vector3 operator*(const Vector3& v1, const Vector3& v2) { return myMath_->MultiplyVector(v1, v2); }
+Matrix4x4 operator*(const Matrix4x4& m1, const Matrix4x4& m2) { return myMath_->Multiply(m1, m2); }
+Matrix4x4 operator+(const Matrix4x4& m1, const Matrix4x4& m2) { return myMath_->AddMatrix(m1, m2); }
+
 void DrawGrid(const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix) {
 	const float kGridHandleWidth = 2.0f;
 	const uint32_t kSubdivision = 10;
@@ -72,22 +77,20 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 
 	Vector3 cameraPosition = { 0.0f ,0.0f,-20.0f };
-	Vector3 cameraTranslate = { 0.0f,-1.0f,-6.49f };
-	Vector3 cameraRotate = { 0.0f,0.26f,0.0f };
+	Vector3 cameraTranslate = { 0.0f,-1.0f,-8.49f };
+	Vector3 cameraRotate = {- 0.2f,0.0f,0.0f };
 
 
 
 
+		
 	Sphere sphere[3] = {
-		{0.0,0.0f,0.0f ,0.2f},
-		{0.0,0.0f,0.0f ,0.2f},
-		{0.0,0.0f,0.0f ,0.2f}
+		{0.0,0.0f,0.0f ,0.1f},
+		{0.0,0.0f,0.0f ,0.1f},
+		{0.0,0.0f,0.0f ,0.1f}
 	};
 
 
-	sphere[0].center = { translates[0].x,translates[0].y,translates[0].z };
-	sphere[1].center = { translates[1].x,translates[1].y,translates[1].z };
-	sphere[2].center = { translates[2].x,translates[2].y,translates[2].z };
 
 
 
@@ -105,30 +108,26 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		///
 		
 
+
 		Matrix4x4 shoulder = myMath_->MakeAffineMatrix(scales[0],rotates[0],translates[0]);
 		Matrix4x4 elbow = myMath_->MakeAffineMatrix(scales[1], rotates[1], translates[1]);
 		Matrix4x4 hand = myMath_->MakeAffineMatrix(scales[2], rotates[2],translates[2]);
 
-		
-		Vector3 s = { shoulder.m[3][0],shoulder.m[3][1], shoulder.m[3][2] };
-		Vector3 e = { elbow.m[3][0],elbow.m[3][1], elbow.m[3][2] };
-		Vector3 h = { hand.m[3][0], hand.m[3][1],  hand.m[3][2] };
-
 
 		Matrix4x4 worldMatrix = myMath_->MakeAffineMatrix({ 1.0f,1.0f,1.0f }, cameraRotate, cameraTranslate);
-		Matrix4x4 Ws = myMath_->MakeAffineMatrix(scales[0], myMath_->MultiplyVector(rotates[0], cameraRotate), myMath_->MultiplyVector(translates[0],cameraTranslate));
-		Matrix4x4 We = myMath_->MakeAffineMatrix(scales[1], myMath_->MultiplyVector(rotates[1], cameraRotate), myMath_->MultiplyVector(myMath_->MultiplyVector(translates[0], translates[1]), cameraTranslate));
-		Matrix4x4 Wh = myMath_->MakeAffineMatrix(scales[2], myMath_->MultiplyVector(rotates[2], cameraRotate),myMath_->MultiplyVector(myMath_->MultiplyVector(myMath_->MultiplyVector(translates[0], translates[1]), translates[2]), cameraTranslate));
+		Matrix4x4 Ws = shoulder * worldMatrix;
+		Matrix4x4 We = elbow * Ws;
+		Matrix4x4 Wh = hand * We;
 
 		Matrix4x4 cameraMatrix = myMath_->MakeAffineMatrix({ 1.0f,1.0f,1.0f }, { 0.0f,0.0f,0.0f }, cameraPosition);
 		Matrix4x4 viewMatrix = myMath_->Inverse(cameraMatrix);
 		Matrix4x4 projectionMatrix = myMath_->MakePerspectiveFovMatrix(0.45f, float(1280.0f) / float(720.0f), 0.1f, 100.0f);		
 
 
-		Matrix4x4 WorldViewProjectionMatrix = myMath_->Multiply(worldMatrix, myMath_->Multiply(viewMatrix, projectionMatrix));
-		Matrix4x4 SWorldViewProjectionMatrix = myMath_->Multiply(Ws, myMath_->Multiply(viewMatrix, projectionMatrix));
-		Matrix4x4 EWorldViewProjectionMatrix = myMath_->Multiply(We, myMath_->Multiply(viewMatrix, projectionMatrix));
-		Matrix4x4 HWorldViewProjectionMatrix = myMath_->Multiply(Wh, myMath_->Multiply(viewMatrix, projectionMatrix));
+		Matrix4x4 WorldViewProjectionMatrix = worldMatrix * viewMatrix * projectionMatrix;
+		Matrix4x4 SWorldViewProjectionMatrix = Ws * viewMatrix * projectionMatrix;
+		Matrix4x4 EWorldViewProjectionMatrix = We * viewMatrix * projectionMatrix;
+		Matrix4x4 HWorldViewProjectionMatrix = Wh * viewMatrix * projectionMatrix;
 
 
 		Matrix4x4 viewportMatrix = myMath_->MakeViewportMatrix(0, 0, float(1280.0f), float(720.0f), 0.0f, 1.0f);
@@ -139,12 +138,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 
 
-		Vector3 shoulderScreen = myMath_->Transform(myMath_->Transform(s, SWorldViewProjectionMatrix), viewportMatrix);
-		Vector3 elbowScreen = myMath_->Transform(myMath_->Transform(e, EWorldViewProjectionMatrix), viewportMatrix);
-		Vector3 handScreen = myMath_->Transform(myMath_->Transform(h, HWorldViewProjectionMatrix), viewportMatrix);
-		//sphere[0].center = myMath_->Transform(myMath_->Transform(s, SWorldViewProjectionMatrix), viewportMatrix);
-		//sphere[1].center = myMath_->Transform(myMath_->Transform(e, EWorldViewProjectionMatrix), viewportMatrix);
-		//sphere[2].center = myMath_->Transform(myMath_->Transform(h, HWorldViewProjectionMatrix), viewportMatrix);
+		Vector3 shoulderScreen = myMath_->Transform(myMath_->Transform(sphere[0].center, SWorldViewProjectionMatrix), viewportMatrix);
+		Vector3 elbowScreen = myMath_->Transform(myMath_->Transform(sphere[1].center, EWorldViewProjectionMatrix), viewportMatrix);
+		Vector3 handScreen = myMath_->Transform(myMath_->Transform(sphere[2].center, HWorldViewProjectionMatrix), viewportMatrix);
 
 
 
@@ -155,9 +151,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		//sphere[1].center = { elbowScreen.x,elbowScreen.y,elbowScreen.z };
 		//sphere[2].center = { handScreen.x,handScreen.y,handScreen.z };
 
-		myMath_->DrawSphere(sphere[0], WorldViewProjectionMatrix, viewportMatrix, RED);
-		myMath_->DrawSphere(sphere[1], WorldViewProjectionMatrix, viewportMatrix, GREEN);
-		myMath_->DrawSphere(sphere[2], WorldViewProjectionMatrix, viewportMatrix, BLUE);
+		myMath_->DrawSphere(sphere[0], SWorldViewProjectionMatrix, viewportMatrix, RED);
+		myMath_->DrawSphere(sphere[1], EWorldViewProjectionMatrix, viewportMatrix, GREEN);
+		myMath_->DrawSphere(sphere[2], HWorldViewProjectionMatrix, viewportMatrix, BLUE);
 		
 		Novice::DrawLine((int)shoulderScreen.x, (int)shoulderScreen.y, (int)elbowScreen.x, (int)elbowScreen.y, WHITE);
 		Novice::DrawLine((int)elbowScreen.x, (int)elbowScreen.y, (int)handScreen.x, (int)handScreen.y, WHITE);
